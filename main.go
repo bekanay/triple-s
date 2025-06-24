@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/csv"
 	"flag"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -21,10 +23,15 @@ func main() {
 		log.Fatal("usage")
 	}
 
+	err := initBucketsCSV(*directory)
+	if err != nil {
+		log.Fatalf("Failed to initialize buckets.csv: %v", err)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", route)
 	log.Println("Starting server on :", *portNumber)
-	err := http.ListenAndServe(*portNumber, mux)
+	err = http.ListenAndServe(*portNumber, mux)
 	log.Fatal(err)
 }
 
@@ -75,4 +82,24 @@ func handleListBuckets(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteBucket(w http.ResponseWriter, r *http.Request) {
+}
+
+func initBucketsCSV(dir string) error {
+	filePath := filepath.Join(dir, "buckets.csv")
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		file, err := os.Create(filePath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+
+		headers := []string{"Name", "CreationTime", "LastModifiedTime"}
+		if err := writer.Write(headers); err != nil {
+			return err
+		}
+	}
+	return nil
 }
