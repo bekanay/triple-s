@@ -50,9 +50,11 @@ func route(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
+		handleListBuckets(w, r)
 	}
 
 	if r.Method == http.MethodDelete {
+		handleDeleteBucket(w, r, "bucket")
 	}
 }
 
@@ -75,13 +77,15 @@ func handleCreateBucket(w http.ResponseWriter, r *http.Request, bucketName strin
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Success"))
+	w.Write([]byte("Creating bucket: " + bucketName))
 }
 
 func handleListBuckets(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Listing all buckets"))
 }
 
-func handleDeleteBucket(w http.ResponseWriter, r *http.Request) {
+func handleDeleteBucket(w http.ResponseWriter, r *http.Request, bucketName string) {
+	w.Write([]byte("Deleting bucket: " + bucketName))
 }
 
 func initBucketsCSV(dir string) error {
