@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func main() {
@@ -64,18 +65,32 @@ func handleCreateBucket(w http.ResponseWriter, r *http.Request, bucketName strin
 		return
 	}
 	for i := 0; i < len(bucketName); i++ {
-		if bucketName[i] >= 'a' && bucketName[i] <= 'z' {
-			continue
-		}
-		if bucketName[i] >= '0' && bucketName[i] <= '9' {
-			continue
-		}
-		if bucketName[i] == '-' || bucketName[i] == '.' {
+		if (bucketName[i] >= 'a' && bucketName[i] <= 'z') ||
+			(bucketName[i] >= '0' && bucketName[i] <= '9') ||
+			(bucketName[i] == '-' || bucketName[i] == '.') {
 			continue
 		}
 		http.Error(w, http.StatusText(400), 400)
 		return
 	}
+
+	bucketPath := filepath.Join("./data", bucketName)
+	if _, err := os.Stat(bucketPath); err == nil {
+		http.Error(w, "Bucket already exists", http.StatusConflict)
+		return
+	}
+
+	if err := os.MkdirAll(bucketPath, 0755); err != nil {
+		http.Error(w, "Failed to crate bucket directory", 500)
+		return
+	}
+
+	err := appendBucketToCSV("./data", bucketName)
+	if err != nil {
+		http.Error(w, "Failed to write to CSV", 500)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Creating bucket: " + bucketName))
 }
@@ -106,4 +121,21 @@ func initBucketsCSV(dir string) error {
 		}
 	}
 	return nil
+}
+
+func appendBucketToCSV(dir, bucketName string) error {
+	filePath := filepath.Join(dir, "buckets.csv")
+
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	now := time.Now().Format(time.RFC3339)
+	record := []string{bucketName, now, now}
+	return writer.Write(record)
 }
