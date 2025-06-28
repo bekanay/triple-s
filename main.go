@@ -52,11 +52,14 @@ func route(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet {
 		handleListBuckets(w, r)
+		return
 	}
 
 	if r.Method == http.MethodDelete {
 		handleDeleteBucket(w, r, "bucket")
+		return
 	}
+	http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 }
 
 func handleCreateBucket(w http.ResponseWriter, r *http.Request, bucketName string) {
@@ -64,13 +67,40 @@ func handleCreateBucket(w http.ResponseWriter, r *http.Request, bucketName strin
 		http.Error(w, http.StatusText(400), 400)
 		return
 	}
+	periodCounter := 0
+	dashCounter := 0
 	for i := 0; i < len(bucketName); i++ {
 		if (bucketName[i] >= 'a' && bucketName[i] <= 'z') ||
-			(bucketName[i] >= '0' && bucketName[i] <= '9') ||
-			(bucketName[i] == '-' || bucketName[i] == '.') {
+			(bucketName[i] >= '0' && bucketName[i] <= '9') {
+			dashCounter = 0
+			periodCounter = 0
 			continue
 		}
-		http.Error(w, http.StatusText(400), 400)
+		if (bucketName[i] == '-' && i == 0) || (bucketName[i] == '-' && i == len(bucketName)-1) {
+			http.Error(w, "hyphen on start or in the end is not allowed", 400)
+			return
+		}
+		if bucketName[i] == '.' {
+			dashCounter = 0
+			periodCounter++
+			if periodCounter > 1 {
+				http.Error(w, "consecutive periods are not allowed", 400)
+				return
+			}
+			continue
+		}
+
+		if bucketName[i] == '-' {
+			periodCounter = 0
+			dashCounter++
+			if dashCounter > 1 {
+				http.Error(w, "consecutive dashes are not allowed", 400)
+				return
+			}
+			continue
+		}
+
+		http.Error(w, "error", 400)
 		return
 	}
 
