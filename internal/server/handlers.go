@@ -1,8 +1,10 @@
 package server
 
 import (
+	"encoding/xml"
 	"net/http"
 	"strings"
+	"triple-s/internal/bucket"
 )
 
 func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
@@ -40,20 +42,39 @@ func (s *Server) createBucket(w http.ResponseWriter, r *http.Request, name strin
 }
 
 func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
-	names, err := s.svc.List()
+	metas, err := bucket.ReadAllMetadata(s.baseDir)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	for _, n := range names {
-		w.Write([]byte(n + "\n"))
+
+	resp := listBucketsResultXML{}
+	for _, m := range metas {
+		resp.Buckets = append(resp.Buckets, bucketXML{
+			Name:             m.Name,
+			CreationTime:     m.CreationTime,
+			LastModifiedTime: m.LastModifiedTime,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/xml")
+	w.WriteHeader(http.StatusOK)
+	if err := xml.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func (s *Server) deleteBucket(w http.ResponseWriter, r *http.Request, name string) {
 	if err := s.svc.Delete(name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		switch err.Error() {
+		case "bucket not found":
+			http.Error(w, err.Error(), http.StatusNotFound)
+		case "bucket not empty":
+			http.Error(w, err.Error(), http.StatusConflict)
+		default:
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
-	w.Write([]byte("Deleted bucket " + name))
+	w.WriteHeader(http.StatusNoContent)
 }

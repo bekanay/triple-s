@@ -56,6 +56,22 @@ func (s *service) List() ([]string, error) {
 }
 
 func (s *service) Delete(name string) error {
-	// remove dir, remove CSV row, etc.
-	return os.RemoveAll(filepath.Join(s.baseDir, name))
+	if err := validate.Name(name); err != nil {
+		return err
+	}
+	path := filepath.Join(s.baseDir, name)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return errors.New(("bucket not found"))
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	if len(entries) > 0 {
+		return errors.New("bucket not empty")
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	return removeBucketFromCSV(s.baseDir, name)
 }

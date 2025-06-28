@@ -6,8 +6,9 @@ import (
 )
 
 type Server struct {
-	svc bucket.Service
-	mux *http.ServeMux
+	svc     bucket.Service
+	mux     *http.ServeMux
+	baseDir string
 }
 
 func New(dataDir string) (*Server, error) {
@@ -17,8 +18,9 @@ func New(dataDir string) (*Server, error) {
 	}
 
 	s := &Server{
-		svc: svc,
-		mux: http.NewServeMux(),
+		svc:     svc,
+		mux:     http.NewServeMux(),
+		baseDir: dataDir,
 	}
 	s.routes()
 	return s, nil
