@@ -2,7 +2,11 @@ package server
 
 import (
 	"encoding/xml"
+	"errors"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"triple-s/internal/bucket"
 )
@@ -15,7 +19,20 @@ func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "bucket name required", http.StatusBadRequest)
 			return
 		}
-		s.createBucket(w, r, path)
+		slashCounter := strings.Count(path, "/")
+		fmt.Println(slashCounter)
+		parts := strings.Split(path, "/")
+		switch slashCounter {
+		case 0:
+			s.createBucket(w, r, path)
+		case 1:
+			err := s.uploadObject(w, r, parts[0], parts[1])
+			if err != nil {
+				w.Write([]byte("fail"))
+			}
+		default:
+			http.Error(w, "can not use more than 2 segments in path", http.StatusBadRequest)
+		}
 
 	case http.MethodGet:
 		s.listBuckets(w, r)
@@ -77,4 +94,13 @@ func (s *Server) deleteBucket(w http.ResponseWriter, r *http.Request, name strin
 		}
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) uploadObject(w http.ResponseWriter, r *http.Request, bucket, object string) error {
+	path := filepath.Join(s.baseDir, bucket)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return errors.New("no bucket found")
+	}
+	path = filepath.Join(path, object)
+	return nil
 }

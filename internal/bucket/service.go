@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	"triple-s/internal/validate"
 )
 
 type Service interface {
@@ -27,7 +26,7 @@ func NewService(baseDir string) (Service, error) {
 }
 
 func (s *service) Create(name string) error {
-	if err := validate.Name(name); err != nil {
+	if err := Name(name); err != nil {
 		return err
 	}
 	path := filepath.Join(s.baseDir, name)
@@ -56,7 +55,7 @@ func (s *service) List() ([]string, error) {
 }
 
 func (s *service) Delete(name string) error {
-	if err := validate.Name(name); err != nil {
+	if err := Name(name); err != nil {
 		return err
 	}
 	path := filepath.Join(s.baseDir, name)
