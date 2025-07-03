@@ -1,4 +1,4 @@
-package bucket
+package storage
 
 import (
 	"errors"
@@ -7,17 +7,21 @@ import (
 	"time"
 )
 
-type Service interface {
-	Create(name string) error
-	List() ([]string, error)
-	Delete(name string) error
+type Storage interface {
+	CreateBucket(name string) error
+	ListBuckets() ([]string, error)
+	DeleteBucket(name string) error
+
+	UploadObject()
+	GetObject()
+	DeleteObject()
 }
 
 type service struct {
 	baseDir string
 }
 
-func NewService(baseDir string) (Service, error) {
+func NewService(baseDir string) (Storage, error) {
 	// ensure CSV file exists, etc.
 	if err := initBucketsCSV(baseDir); err != nil {
 		return nil, err
@@ -25,7 +29,7 @@ func NewService(baseDir string) (Service, error) {
 	return &service{baseDir: baseDir}, nil
 }
 
-func (s *service) Create(name string) error {
+func (s *service) CreateBucket(name string) error {
 	if err := Name(name); err != nil {
 		return err
 	}
@@ -39,7 +43,7 @@ func (s *service) Create(name string) error {
 	return appendBucketToCSV(s.baseDir, name, time.Now())
 }
 
-func (s *service) List() ([]string, error) {
+func (s *service) ListBuckets() ([]string, error) {
 	// e.g. read directories under baseDir
 	entries, err := os.ReadDir(s.baseDir)
 	if err != nil {
@@ -54,7 +58,7 @@ func (s *service) List() ([]string, error) {
 	return names, nil
 }
 
-func (s *service) Delete(name string) error {
+func (s *service) DeleteBucket(name string) error {
 	if err := Name(name); err != nil {
 		return err
 	}
@@ -73,4 +77,13 @@ func (s *service) Delete(name string) error {
 		return err
 	}
 	return removeBucketFromCSV(s.baseDir, name)
+}
+
+func (s *service) UploadObject() {
+}
+
+func (s *service) GetObject() {
+}
+
+func (s *service) DeleteObject() {
 }

@@ -2,17 +2,17 @@ package server
 
 import (
 	"net/http"
-	"triple-s/internal/bucket"
+	"triple-s/internal/storage"
 )
 
 type Server struct {
-	svc     bucket.Service
+	svc     storage.Storage
 	mux     *http.ServeMux
 	baseDir string
 }
 
 func New(dataDir string) (*Server, error) {
-	svc, err := bucket.NewService(dataDir)
+	svc, err := storage.NewService(dataDir)
 	if err != nil {
 		return nil, err
 	}

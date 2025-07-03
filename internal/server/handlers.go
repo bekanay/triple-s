@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"triple-s/internal/bucket"
+	"triple-s/internal/storage"
 )
 
 func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +50,7 @@ func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createBucket(w http.ResponseWriter, r *http.Request, name string) {
-	if err := s.svc.Create(name); err != nil {
+	if err := s.svc.CreateBucket(name); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -59,7 +59,7 @@ func (s *Server) createBucket(w http.ResponseWriter, r *http.Request, name strin
 }
 
 func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
-	metas, err := bucket.ReadAllMetadata(s.baseDir)
+	metas, err := storage.ReadAllMetadata(s.baseDir)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -82,7 +82,7 @@ func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteBucket(w http.ResponseWriter, r *http.Request, name string) {
-	if err := s.svc.Delete(name); err != nil {
+	if err := s.svc.DeleteBucket(name); err != nil {
 		switch err.Error() {
 		case "bucket not found":
 			http.Error(w, err.Error(), http.StatusNotFound)
