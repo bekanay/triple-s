@@ -2,14 +2,16 @@ package server
 
 import (
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"triple-s/internal/storage"
 )
+
+type PutObjectResult struct {
+	XMLName xml.Name `xml:"PutObjectResult"`
+	ETag    string   `xml:"ETag"`
+}
 
 func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/")
@@ -26,10 +28,7 @@ func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
 		case 0:
 			s.createBucket(w, r, path)
 		case 1:
-			err := s.uploadObject(w, r, parts[0], parts[1])
-			if err != nil {
-				w.Write([]byte("fail"))
-			}
+			s.uploadObject(w, r, parts[0], parts[1])
 		default:
 			http.Error(w, "can not use more than 2 segments in path", http.StatusBadRequest)
 		}
@@ -96,11 +95,23 @@ func (s *Server) deleteBucket(w http.ResponseWriter, r *http.Request, name strin
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) uploadObject(w http.ResponseWriter, r *http.Request, bucket, object string) error {
-	path := filepath.Join(s.baseDir, bucket)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return errors.New("no bucket found")
+func (s *Server) uploadObject(w http.ResponseWriter, r *http.Request, bucket, object string) {
+	contentType := r.Header.Get("Content-Type")
+
+	err := s.svc.UploadObject(bucket, r.Body, object, contentType)
+	if err != nil {
+		switch err.Error() {
+		case "no bucket found":
+			http.Error(w, err.Error(), http.StatusNotFound)
+		case "invalid object key":
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
 	}
-	path = filepath.Join(path, object)
-	return nil
+	w.Header().Set("Content-Type", "application/xml")
+	w.WriteHeader(http.StatusOK)
+	resp := PutObjectResult{ETag: ""}
+	xml.NewEncoder(w).Encode(resp)
 }

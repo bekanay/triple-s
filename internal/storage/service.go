@@ -1,9 +1,13 @@
 package storage
 
 import (
+	"encoding/csv"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -12,7 +16,7 @@ type Storage interface {
 	ListBuckets() ([]string, error)
 	DeleteBucket(name string) error
 
-	UploadObject()
+	UploadObject(bucket string, r io.Reader, object, contentType string) error
 	GetObject()
 	DeleteObject()
 }
@@ -79,7 +83,78 @@ func (s *service) DeleteBucket(name string) error {
 	return removeBucketFromCSV(s.baseDir, name)
 }
 
-func (s *service) UploadObject() {
+func (s *service) UploadObject(bucket string, r io.Reader, object, contentType string) error {
+	path := filepath.Join(s.baseDir, bucket)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return errors.New("no bucket found")
+	}
+	if strings.TrimSpace(object) == "" {
+		return errors.New("invalid object key")
+	}
+	metaFile := filepath.Join(path, "objects.csv")
+	if err := ensureObjectsCSV(metaFile); err != nil {
+		return err
+	}
+	path = filepath.Join(path, object)
+	f, err := os.Create(path)
+	if err != nil {
+		return errors.New("error while creating object file")
+	}
+	defer f.Close()
+
+	bytesWritten, err := io.Copy(f, r)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return upsertObjectMetadata(metaFile, object, bytesWritten, contentType, now)
+}
+
+func upsertObjectMetadata(path, key string, size int64, ctype, modTime string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	reader := csv.NewReader(f)
+	recs, err := reader.ReadAll()
+	f.Close()
+	if err != nil {
+		return err
+	}
+	f, err = os.Create(path)
+	if err != nil {
+		return err
+	}
+	w := csv.NewWriter(f)
+	w.Write(recs[0])
+	updated := false
+	for _, row := range recs[1:] {
+		if row[0] == key {
+			w.Write([]string{key, strconv.FormatInt(size, 10), ctype, modTime})
+			updated = true
+		} else {
+			w.Write(row)
+		}
+	}
+	if !updated {
+		w.Write([]string{key, strconv.FormatInt(size, 10), ctype, modTime})
+	}
+	w.Flush()
+	return w.Error()
+}
+
+func ensureObjectsCSV(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		f, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		w := csv.NewWriter(f)
+		defer w.Flush()
+		return w.Write([]string{"ObjectKey", "Size", "ContentType", "LastModified"})
+	}
+	return nil
 }
 
 func (s *service) GetObject() {
