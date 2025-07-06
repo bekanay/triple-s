@@ -49,7 +49,16 @@ func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "bucket name required", http.StatusBadRequest)
 			return
 		}
-		s.deleteBucket(w, r, path)
+		slashCounter := strings.Count(path, "/")
+		parts := strings.Split(path, "/")
+		switch slashCounter {
+		case 0:
+			s.deleteBucket(w, r, path)
+		case 1:
+			s.deleteObject(w, r, parts[0], parts[1])
+		default:
+			http.Error(w, "can not use more than 2 segments in path", http.StatusBadRequest)
+		}
 
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -144,4 +153,17 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request, bucket, objec
 	if _, err := w.Write(bytes); err != nil {
 		log.Println("failed to send file:", err)
 	}
+}
+
+func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request, bucket, object string) {
+	err := s.svc.DeleteObject(bucket, object)
+	switch err.Error() {
+	case "no bucket found":
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case "no object found":
+		http.Error(w, err.Error(), http.StatusNotFound)
+	default:
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

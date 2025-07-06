@@ -76,16 +76,15 @@ func ReadAllMetadata(dir string) ([]Metadata, error) {
 	return metas, nil
 }
 
-func removeBucketFromCSV(dir, name string) error {
-	filePath := filepath.Join(dir, "buckets.csv")
+func removeObjectFromCSV(file, dir, name string) error {
+	filePath := filepath.Join(dir, file)
 	f, err := os.Open(filePath)
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	rdr := csv.NewReader(f)
 	records, err := rdr.ReadAll()
-	defer f.Close()
-
 	if err != nil {
 		return err
 	}
@@ -96,7 +95,7 @@ func removeBucketFromCSV(dir, name string) error {
 			out = append(out, rec)
 		}
 	}
-	tmp := filepath.Join(dir, "buckets.tmp")
+	tmp := filepath.Join(dir, "temp.tmp")
 	f2, err := os.Create(tmp)
 	if err != nil {
 		return err

@@ -19,7 +19,7 @@ type Storage interface {
 
 	UploadObject(bucket string, r io.Reader, object, contentType string) error
 	GetObject(bucket, object string) ([]byte, string, error)
-	DeleteObject()
+	DeleteObject(bucket, object string) error
 }
 
 type service struct {
@@ -81,7 +81,7 @@ func (s *service) DeleteBucket(name string) error {
 	if err := os.Remove(path); err != nil {
 		return err
 	}
-	return removeBucketFromCSV(s.baseDir, name)
+	return removeObjectFromCSV("buckets.csv", s.baseDir, name)
 }
 
 func (s *service) UploadObject(bucket string, r io.Reader, object, contentType string) error {
@@ -183,5 +183,18 @@ func (s *service) GetObject(bucket, object string) ([]byte, string, error) {
 	return data, contentType, nil
 }
 
-func (s *service) DeleteObject() {
+func (s *service) DeleteObject(bucket, object string) error {
+	bucketPath := filepath.Join(s.baseDir, bucket)
+	if _, err := os.Stat(bucketPath); os.IsNotExist(err) {
+		return errors.New("no bucket found")
+	}
+	objectPath := filepath.Join(bucketPath, object)
+	if _, err := os.Stat(objectPath); os.IsNotExist(err) {
+		return errors.New("no object found")
+	}
+	err := os.Remove(objectPath)
+	if err != nil {
+		return err
+	}
+	return removeObjectFromCSV("objects.csv", bucketPath, object)
 }
