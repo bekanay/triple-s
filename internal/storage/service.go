@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,7 +18,7 @@ type Storage interface {
 	DeleteBucket(name string) error
 
 	UploadObject(bucket string, r io.Reader, object, contentType string) error
-	GetObject()
+	GetObject(bucket, object string) ([]byte, string, error)
 	DeleteObject()
 }
 
@@ -157,7 +158,29 @@ func ensureObjectsCSV(path string) error {
 	return nil
 }
 
-func (s *service) GetObject() {
+func (s *service) GetObject(bucket, object string) ([]byte, string, error) {
+	path := filepath.Join(s.baseDir, bucket)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, "", errors.New("no bucket found")
+	}
+	path = filepath.Join(path, object)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, "", errors.New("no object found")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, "", err
+	}
+	defer f.Close()
+
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	contentType := http.DetectContentType(buf[:n])
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, contentType, nil
 }
 
 func (s *service) DeleteObject() {

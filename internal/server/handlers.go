@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/xml"
-	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"triple-s/internal/storage"
@@ -22,7 +22,6 @@ func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		slashCounter := strings.Count(path, "/")
-		fmt.Println(slashCounter)
 		parts := strings.Split(path, "/")
 		switch slashCounter {
 		case 0:
@@ -34,7 +33,16 @@ func (s *Server) handleBuckets(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case http.MethodGet:
-		s.listBuckets(w, r)
+		slashCounter := strings.Count(path, "/")
+		parts := strings.Split(path, "/")
+		switch slashCounter {
+		case 0:
+			s.listBuckets(w, r)
+		case 1:
+			s.getObject(w, r, parts[0], parts[1])
+		default:
+			http.Error(w, "can not use more than 2 segments in path", http.StatusBadRequest)
+		}
 
 	case http.MethodDelete:
 		if path == "" {
@@ -114,4 +122,26 @@ func (s *Server) uploadObject(w http.ResponseWriter, r *http.Request, bucket, ob
 	w.WriteHeader(http.StatusOK)
 	resp := PutObjectResult{ETag: ""}
 	xml.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) getObject(w http.ResponseWriter, r *http.Request, bucket, object string) {
+	var bytes []byte
+	var contentType string
+	var err error
+	bytes, contentType, err = s.svc.GetObject(bucket, object)
+	if err != nil {
+		switch err.Error() {
+		case "no bucket found":
+			http.Error(w, err.Error(), http.StatusNotFound)
+		case "no object found":
+			http.Error(w, err.Error(), http.StatusNotFound)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(bytes); err != nil {
+		log.Println("failed to send file:", err)
+	}
 }
