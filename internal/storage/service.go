@@ -75,8 +75,14 @@ func (s *service) DeleteBucket(name string) error {
 	if err != nil {
 		return err
 	}
-	if len(entries) > 0 {
+	if len(entries) > 1 {
 		return errors.New("bucket not empty")
+	}
+	if len(entries) == 1 {
+		pathCSV := filepath.Join(path, "objects.csv")
+		if err := os.Remove(pathCSV); err != nil {
+			return err
+		}
 	}
 	if err := os.Remove(path); err != nil {
 		return err
@@ -184,6 +190,9 @@ func (s *service) GetObject(bucket, object string) ([]byte, string, error) {
 }
 
 func (s *service) DeleteObject(bucket, object string) error {
+	if object == "objects.csv" {
+		return errors.New("not allowed")
+	}
 	bucketPath := filepath.Join(s.baseDir, bucket)
 	if _, err := os.Stat(bucketPath); os.IsNotExist(err) {
 		return errors.New("no bucket found")
