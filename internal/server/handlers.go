@@ -127,11 +127,23 @@ func (s *Server) deleteBucket(w http.ResponseWriter, r *http.Request, name strin
 	if err := s.svc.DeleteBucket(name); err != nil {
 		switch err.Error() {
 		case "bucket not found":
-			http.Error(w, err.Error(), http.StatusNotFound)
+			resp := ErrorResponse{
+				Code:    "404",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusNotFound, resp)
 		case "bucket not empty":
-			http.Error(w, err.Error(), http.StatusConflict)
+			resp := ErrorResponse{
+				Code:    "409",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusConflict, resp)
 		default:
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			resp := ErrorResponse{
+				Code:    "400",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusBadRequest, resp)
 			return
 		}
 	}
@@ -139,17 +151,37 @@ func (s *Server) deleteBucket(w http.ResponseWriter, r *http.Request, name strin
 }
 
 func (s *Server) uploadObject(w http.ResponseWriter, r *http.Request, bucket, object string) {
+	if object == "objects.csv" {
+		resp := ErrorResponse{
+			Code:    "403",
+			Message: "Access denied",
+		}
+		writeXML(w, http.StatusForbidden, resp)
+		return
+	}
 	contentType := r.Header.Get("Content-Type")
 
 	err := s.svc.UploadObject(bucket, r.Body, object, contentType)
 	if err != nil {
 		switch err.Error() {
 		case "no bucket found":
-			http.Error(w, err.Error(), http.StatusNotFound)
+			resp := ErrorResponse{
+				Code:    "404",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusNotFound, resp)
 		case "invalid object key":
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			resp := ErrorResponse{
+				Code:    "400",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusBadRequest, resp)
 		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			resp := ErrorResponse{
+				Code:    "500",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusInternalServerError, resp)
 		}
 		return
 	}
@@ -160,6 +192,14 @@ func (s *Server) uploadObject(w http.ResponseWriter, r *http.Request, bucket, ob
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request, bucket, object string) {
+	if object == "objects.csv" {
+		resp := ErrorResponse{
+			Code:    "403",
+			Message: "Access denied",
+		}
+		writeXML(w, http.StatusForbidden, resp)
+		return
+	}
 	var bytes []byte
 	var contentType string
 	var err error
@@ -193,11 +233,21 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request, bucket, objec
 
 func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request, bucket, object string) {
 	if err := s.svc.DeleteObject(bucket, object); err != nil {
-		resp := ErrorResponse{
-			Code:    "404",
-			Message: err.Error(),
+		switch err.Error() {
+		case "not allowed":
+			resp := ErrorResponse{
+				Code:    "403",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusForbidden, resp)
+		case "no bucket found", "no object found":
+			resp := ErrorResponse{
+				Code:    "404",
+				Message: err.Error(),
+			}
+			writeXML(w, http.StatusNotFound, resp)
 		}
-		writeXML(w, http.StatusNotFound, resp)
+
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
