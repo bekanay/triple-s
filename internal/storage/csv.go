@@ -31,7 +31,7 @@ func initBucketsCSV(dir string) error {
 
 func appendBucketToCSV(dir, name string, t time.Time) error {
 	file := filepath.Join(dir, "buckets.csv")
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}

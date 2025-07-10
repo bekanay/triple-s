@@ -16,7 +16,6 @@ type Storage interface {
 	CreateBucket(name string) error
 	ListBuckets() ([]string, error)
 	DeleteBucket(name string) error
-
 	UploadObject(bucket string, r io.Reader, object, contentType string) error
 	GetObject(bucket, object string) ([]byte, string, error)
 	DeleteObject(bucket, object string) error
@@ -42,7 +41,7 @@ func (s *service) CreateBucket(name string) error {
 	if _, err := os.Stat(path); err == nil {
 		return errors.New("bucket already exists")
 	}
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil {
 		return err
 	}
 	return appendBucketToCSV(s.baseDir, name, time.Now())
